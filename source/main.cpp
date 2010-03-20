@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <ail/configuration.hpp>
+#include <ail/file.hpp>
 #include <ail/array.hpp>
 #include <ail/types.hpp>
 #include "com.hpp"
@@ -16,7 +17,7 @@ std::string wchar_to_string(wchar_t * input)
 	return output;
 }
 
-void perform_query(bool list_devices_mode)
+void perform_query(string_vector & names, string_vector & serial_numbers)
 {
 	com_handler com_object;
 	security_handler security_object;
@@ -38,8 +39,6 @@ void perform_query(bool list_devices_mode)
 
 	IWbemClassObject * class_object;
 	ULONG return_value = 0;
-
-	uword counter = 1;
  
 	while(enumerator)
 	{
@@ -74,24 +73,95 @@ void perform_query(bool list_devices_mode)
 
 		class_object->Release();
 
-		if(list_devices_mode)
-			std::cout << counter << ". " << name << ": " << serial_number << std::endl;
-
-		counter++;
+		names.push_back(name);
+		serial_numbers.push_back(serial_number);
 	}
 
 	enumerator->Release();
 }
 
+void print_help(char ** argv)
+{
+	std::cout << "Usage: " << std::endl;
+	std::cout << argv[0] << " list: List devices and their serial numbers" << std::endl;
+	std::cout << argv[0] << " mount <configuration file>: Mount devices as specified in the configuration file and the disk file" << std::endl;
+}
+
 int main(int argc, char ** argv)
 {
+	if(argc < 2)
+	{
+		print_help(argv);
+		return 1;
+	}
+
+	std::string operation(argv[1]);
+
 	try
 	{
-		perform_query(true);
+		string_vector
+			names,
+			serial_numbers;
+
+		if(operation == "list")
+		{
+			perform_query(names, serial_numbers);
+
+			uword counter = 1;
+			std::cout << "List of hard disks and their serial numbers:" << std::endl;
+			for(std::size_t i = 0; i < names.size(); i++, counter++)
+				std::cout << counter << ". " << names[i] << ": " << serial_number[i] << std::endl;
+		}
+		else if(operation == "mount")
+		{
+			if(argc != 3)
+			{
+				std::cout << "Invalid argument count for mounting." << std::endl;
+				print_help();
+				return 1;
+			}
+
+			std::string configuration_file(argv[2]);
+			ail::configuration configuration;
+			if(!configuration.load(configuration_file))
+			{
+				std::cout << "Failed to load configuration file " << configuration_file << std::endl;
+				return 1;
+			}
+
+			std::string
+				disk_file = configuration.string("disk_file"),
+				command_line = configuration.string("command_line");
+
+			string_vector lines;
+			if(!ail::read_lines(disk_file, lines))
+			{
+				std::cout << "Unable to read disk file " << disk_file << std::endl;
+				return 1;
+			}
+
+			perform_query(names, serial_numbers);
+
+			for(string_vector::iterator i = lines.begin(); i != lines.end(); i++)
+			{
+				string_vector tokens = ail::tokenise(*i, " ");
+				std::string const
+					& drive_letter = tokens[0];
+					& serial_number = tokens[1];
+			}
+		}
+		else
+		{
+			std::cout << "Invalid operation specified." << std::endl;
+			print_help();
+			return 1;
+		}
 	}
 	catch(ail::exception & exception)
 	{
 		std::cout << "An exception occured: " << exception.get_message() << std::endl;
+		return 1;
 	}
+
 	return 0;	
 }
