@@ -60,10 +60,10 @@ locator_handler::~locator_handler()
 	locator->Release();
 }
 
-server_handler::server_handler():
+server_handler::server_handler(locator_handler & locator):
 	services(0)
 {
-	HRESULT result = locator->ConnectServer
+	HRESULT result = locator.locator->ConnectServer
 	(
 		//Object path of WMI namespace
 		 _bstr_t(L"ROOT\\CIMV2"),

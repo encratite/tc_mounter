@@ -1,11 +1,56 @@
-#define _WIN32_DCOM
-
 #include <iostream>
-#include <comdef.h>
-#include <Wbemidl.h>
+#include "com.hpp"
+
+void perform_query()
+{
+	com_handler com_object;
+	security_handler security_object;
+	locator_handler locator_object;
+	server_handler server_object(locator_object);
+
+	IEnumWbemClassObject * enumerator = 0;
+	HRESULT result = server_object.services->ExecQuery
+	(
+		bstr_t("WQL"), 
+		//bstr_t("select * from Win32_OperatingSystem"),
+		bstr_t("select * from Win32_DiskDrive"),
+		WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, 
+		0,
+		&enumerator
+	);
+	
+	if(FAILED(result))
+		throw ail::exception("Query failed");
+
+	IWbemClassObject * class_object;
+	ULONG return_value = 0;
+ 
+	while(enumerator)
+	{
+		HRESULT next_result = enumerator->Next(WBEM_INFINITE, 1, &class_object, &return_value);
+
+		if(return_value == 0)
+			break;
+
+		VARIANT variant_property;
+
+		next_result = class_object->Get(L"Name", 0, &variant_property, 0, 0);
+		std::wcout << "Name: " << variant_property.bstrVal << std::endl;
+		
+		next_result = class_object->Get(L"SerialNumber", 0, &variant_property, 0, 0);
+		std::wcout << "Serial number: " << variant_property.bstrVal << std::endl;
+
+		VariantClear(&variant_property);
+
+		class_object->Release();
+	}
+
+	enumerator->Release();
+}
 
 int main(int argc, char ** argv)
 {
+	/*
 	HRESULT result = CoInitializeEx(0, COINIT_MULTITHREADED); 
 	if(FAILED(result))
 	{
@@ -160,6 +205,9 @@ int main(int argc, char ** argv)
 	locator->Release();
 	enumerator->Release();
 	CoUninitialize();
+	*/
+
+	perform_query();
 
 	return 0;	
 }
