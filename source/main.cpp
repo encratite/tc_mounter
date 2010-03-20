@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 #include <algorithm>
 #include <string>
 #include <ail/configuration.hpp>
@@ -46,6 +47,23 @@ std::string wchar_to_string(wchar_t * input)
 	WideCharToMultiByte(CP_ACP, 0, input, -1, buffer, size, default_char, 0);
 	std::string output(buffer, static_cast<std::size_t>(size - 1));
 	delete buffer;
+	return output;
+}
+
+std::string convert_serial_number(std::string const & input)
+{
+	std::string output;
+	std::size_t const group_size = 2;
+	for(std::size_t i = 0; i < input.size(); i += group_size)
+	{
+		std::string group = input.substr(i, group_size);
+		std::istringstream stream(group);
+		int letter;
+		if(!(stream >> std::hex >> letter))
+			throw ail::exception("Failed to convert serial number data " + input);
+		output.push_back(static_cast<char>(letter));
+	}
+	output = ail::right_trim(output);
 	return output;
 }
 
@@ -104,6 +122,8 @@ void perform_query(string_vector & names, string_vector & serial_numbers)
 		}
 
 		class_object->Release();
+
+		serial_number = convert_serial_number(serial_number);
 
 		names.push_back(name);
 		serial_numbers.push_back(serial_number);
