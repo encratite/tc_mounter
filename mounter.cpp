@@ -4,32 +4,44 @@
 #include <comdef.h>
 #include <Wbemidl.h>
 
+struct security_handler
+{
+	security_handler();
+};
+
 int main(int argc, char ** argv)
 {
 	HRESULT result = CoInitializeEx(0, COINIT_MULTITHREADED); 
 	if(FAILED(result))
 	{
-		std::cout << "Failed to initialize COM library. Error code = 0x" << std::hex << result << std::endl;
+		std::cout << "Failed to initialise COM library. Error code = 0x" << std::hex << result << std::endl;
 		return 1;
 	}
 
 	result = CoInitializeSecurity
 	(
 		0, 
-		-1, //COM authentication
-		0, //Authentication services
-		0, //Reserved
-		RPC_C_AUTHN_LEVEL_DEFAULT, //Default authentication 
-		RPC_C_IMP_LEVEL_IMPERSONATE, //Default Impersonation 
-		0, //Authentication info
-		EOAC_NONE, //Additional capabilities 
-		0 //Reserved
+		//COM authentication
+		-1,
+		//Authentication services
+		0,
+		//Reserved
+		0,
+		//Default authentication
+		RPC_C_AUTHN_LEVEL_DEFAULT,
+		//Default Impersonation 
+		RPC_C_IMP_LEVEL_IMPERSONATE,
+		//Authentication info
+		0,
+		//Additional capabilities 
+		EOAC_NONE,
+		//Reserved
+		0
 	);
-
 					 
 	if(FAILED(result))
 	{
-		std::cout << "Failed to initialize security. Error code = 0x" << std::hex << result << std::endl;
+		std::cout << "Failed to initialise security. Error code = 0x" << std::hex << result << std::endl;
 		CoUninitialize();
 		return 1;
 	}
