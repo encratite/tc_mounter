@@ -1,7 +1,22 @@
 #include <iostream>
+#include <string>
+#include <ail/configuration.hpp>
+#include <ail/array.hpp>
+#include <ail/types.hpp>
 #include "com.hpp"
 
-void perform_query()
+std::string wchar_to_string(wchar_t * input)
+{
+	char const * default_char = "_";
+	int size = WideCharToMultiByte(CP_ACP, 0, input, -1, 0, 0, default_char, 0);
+	char * buffer = new char[size];
+	WideCharToMultiByte(CP_ACP, 0, input, -1, buffer, size, default_char, 0);
+	std::string output(buffer, static_cast<std::size_t>(size - 1));
+	delete buffer;
+	return output;
+}
+
+void perform_query(bool list_devices_mode)
 {
 	com_handler com_object;
 	security_handler security_object;
@@ -12,7 +27,6 @@ void perform_query()
 	HRESULT result = server_object.services->ExecQuery
 	(
 		bstr_t("WQL"), 
-		//bstr_t("select * from Win32_OperatingSystem"),
 		bstr_t("select * from Win32_DiskDrive"),
 		WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, 
 		0,
@@ -24,25 +38,46 @@ void perform_query()
 
 	IWbemClassObject * class_object;
 	ULONG return_value = 0;
+
+	uword counter = 1;
  
 	while(enumerator)
 	{
-		HRESULT next_result = enumerator->Next(WBEM_INFINITE, 1, &class_object, &return_value);
+		result = enumerator->Next(WBEM_INFINITE, 1, &class_object, &return_value);
 
 		if(return_value == 0)
 			break;
 
-		VARIANT variant_property;
+		std::string
+			name,
+			serial_number;
 
-		next_result = class_object->Get(L"Name", 0, &variant_property, 0, 0);
-		std::wcout << "Name: " << variant_property.bstrVal << std::endl;
-		
-		next_result = class_object->Get(L"SerialNumber", 0, &variant_property, 0, 0);
-		std::wcout << "Serial number: " << variant_property.bstrVal << std::endl;
+		std::string * string_pointers[] =
+		{
+			&name,
+			&serial_number
+		};
 
-		VariantClear(&variant_property);
+		LPCWSTR property_strings[] =
+		{
+			L"Name",
+			L"SerialNumber"
+		};
+
+		for(std::size_t i = 0; i < ail::countof(string_pointers); i++)
+		{
+			VARIANT variant_property;
+			result = class_object->Get(property_strings[i], 0, &variant_property, 0, 0);
+			*string_pointers[i] = wchar_to_string(variant_property.bstrVal);
+			VariantClear(&variant_property);
+		}
 
 		class_object->Release();
+
+		if(list_devices_mode)
+			std::cout << counter << ". " << name << ": " << serial_number << std::endl;
+
+		counter++;
 	}
 
 	enumerator->Release();
@@ -50,164 +85,13 @@ void perform_query()
 
 int main(int argc, char ** argv)
 {
-	/*
-	HRESULT result = CoInitializeEx(0, COINIT_MULTITHREADED); 
-	if(FAILED(result))
+	try
 	{
-		std::cout << "Failed to initialise COM library. Error code = 0x" << std::hex << result << std::endl;
-		return 1;
+		perform_query(true);
 	}
-
-	result = CoInitializeSecurity
-	(
-		0, 
-		//COM authentication
-		-1,
-		//Authentication services
-		0,
-		//Reserved
-		0,
-		//Default authentication
-		RPC_C_AUTHN_LEVEL_DEFAULT,
-		//Default Impersonation 
-		RPC_C_IMP_LEVEL_IMPERSONATE,
-		//Authentication info
-		0,
-		//Additional capabilities 
-		EOAC_NONE,
-		//Reserved
-		0
-	);
-					 
-	if(FAILED(result))
+	catch(ail::exception & exception)
 	{
-		std::cout << "Failed to initialise security. Error code = 0x" << std::hex << result << std::endl;
-		CoUninitialize();
-		return 1;
+		std::cout << "An exception occured: " << exception.get_message() << std::endl;
 	}
-
-	IWbemLocator * locator = 0;
-
-	result = CoCreateInstance
-	(
-		CLSID_WbemLocator,			 
-		0, 
-		CLSCTX_INPROC_SERVER, 
-		IID_IWbemLocator,
-		reinterpret_cast<LPVOID *>(&locator)
-	);
- 
-	if(FAILED(result))
-	{
-		std::cout << "Failed to create IWbemLocator object. Err code = 0x" << std::hex << result << std::endl;
-		CoUninitialize();
-		return 1;
-	}
-
-	IWbemServices * services = 0;
-	
-	result = locator->ConnectServer
-	(
-		//Object path of WMI namespace
-		 _bstr_t(L"ROOT\\CIMV2"),
-		 //User name. 0 = current user
-		 0,
-		 //User password. 0 = current
-		 0,
-		 //Locale. 0 indicates current
-		 0,
-		 //Security flags.
-		 0,
-		 //Authority (e.g. Kerberos)
-		 0,
-		 //Context object 
-		 0,
-		 //pointer to IWbemServices proxy
-		 &services
-	);
-	
-	if(FAILED(result))
-	{
-		std::cout << "Could not connect. Error code = 0x" << std::hex << result << std::endl;
-		locator->Release();	 
-		CoUninitialize();
-		return 1;
-	}
-
-	result = CoSetProxyBlanket
-	(
-		//Indicates the proxy to set
-		services,
-		RPC_C_AUTHN_WINNT,
-		RPC_C_AUTHZ_NONE,
-		0,
-		RPC_C_AUTHN_LEVEL_CALL,
-		RPC_C_IMP_LEVEL_IMPERSONATE,
-		//client identity
-		0,
-		//proxy capabilities 
-		EOAC_NONE
-	);
-
-	if(FAILED(result))
-	{
-		std::cout << "Could not set proxy blanket. Error code = 0x" << std::hex << result << std::endl;
-		services->Release();
-		locator->Release();	 
-		CoUninitialize();
-		return 1;
-	}
-
-	IEnumWbemClassObject * enumerator = 0;
-	result = services->ExecQuery
-	(
-		bstr_t("WQL"), 
-		//bstr_t("select * from Win32_OperatingSystem"),
-		bstr_t("select * from Win32_DiskDrive"),
-		WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, 
-		0,
-		&enumerator
-	);
-	
-	if(FAILED(result))
-	{
-		std::cout << "Query for operating system name failed. Error code = 0x" << std::hex << result << std::endl;
-		services->Release();
-		locator->Release();
-		CoUninitialize();
-		return 1;
-	}
-
-	IWbemClassObject * class_object;
-	ULONG return_value = 0;
- 
-	while(enumerator)
-	{
-		HRESULT next_result = enumerator->Next(WBEM_INFINITE, 1, &class_object, &return_value);
-
-		if(return_value == 0)
-			break;
-
-		VARIANT variant_property;
-
-		next_result = class_object->Get(L"Name", 0, &variant_property, 0, 0);
-		std::wcout << "Name: " << variant_property.bstrVal << std::endl;
-		
-		next_result = class_object->Get(L"SerialNumber", 0, &variant_property, 0, 0);
-		std::wcout << "Serial number: " << variant_property.bstrVal << std::endl;
-
-		VariantClear(&variant_property);
-
-		class_object->Release();
-	}
-
-	services->Release();
-	locator->Release();
-	enumerator->Release();
-	CoUninitialize();
-	*/
-
-	perform_query();
-
 	return 0;	
 }
