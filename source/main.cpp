@@ -2,6 +2,7 @@
 #include <sstream>
 #include <algorithm>
 #include <string>
+#include <cstdlib>
 #include <ail/configuration.hpp>
 #include <ail/file.hpp>
 #include <ail/array.hpp>
@@ -228,6 +229,7 @@ int main(int argc, char ** argv)
 					command = ail::replace_string(command, targets[offset], replacements[offset]);
 
 				std::cout << "Executing " << command << std::endl;
+				std::system(command.c_str());
 			}
 		}
 		else
