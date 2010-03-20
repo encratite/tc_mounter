@@ -1,10 +1,42 @@
 #include <iostream>
+#include <algorithm>
 #include <string>
 #include <ail/configuration.hpp>
 #include <ail/file.hpp>
 #include <ail/array.hpp>
 #include <ail/types.hpp>
 #include "com.hpp"
+
+struct serial_number_entry
+{
+	std::string
+		serial_number,
+		disk_identifier;
+
+	serial_number_entry();
+	serial_number_entry(std::string const & name, std::string const & serial_number);
+	bool operator==(std::string const & input) const;
+};
+
+typedef std::vector<serial_number_entry> serial_number_vector;
+
+serial_number_entry::serial_number_entry()
+{
+}
+
+serial_number_entry::serial_number_entry(std::string const & name, std::string const & serial_number):
+	serial_number(serial_number)
+{
+	std::string const target = "\\\\.\\PHYSICALDRIVE";
+	if(name.size() <= target.size() || name.substr(0, target.size()) != target)
+		throw ail::exception("Encountered an invalid physical drive identifier: " + name);
+	disk_identifier = name.substr(target.size());
+}
+
+bool serial_number_entry::operator==(std::string const & input) const
+{
+	return serial_number == input;
+}
 
 std::string wchar_to_string(wchar_t * input)
 {
@@ -110,14 +142,14 @@ int main(int argc, char ** argv)
 			uword counter = 1;
 			std::cout << "List of hard disks and their serial numbers:" << std::endl;
 			for(std::size_t i = 0; i < names.size(); i++, counter++)
-				std::cout << counter << ". " << names[i] << ": " << serial_number[i] << std::endl;
+				std::cout << counter << ". " << names[i] << ": " << serial_numbers[i] << std::endl;
 		}
 		else if(operation == "mount")
 		{
 			if(argc != 3)
 			{
 				std::cout << "Invalid argument count for mounting." << std::endl;
-				print_help();
+				print_help(argv);
 				return 1;
 			}
 
@@ -142,18 +174,44 @@ int main(int argc, char ** argv)
 
 			perform_query(names, serial_numbers);
 
+			serial_number_vector serial_number_entries;
+			for(std::size_t i = 0; i < names.size(); i++)
+				serial_number_entries.push_back(serial_number_entry(names[i], serial_numbers[i]));
+
 			for(string_vector::iterator i = lines.begin(); i != lines.end(); i++)
 			{
 				string_vector tokens = ail::tokenise(*i, " ");
 				std::string const
-					& drive_letter = tokens[0];
+					& drive_letter = tokens[0],
 					& serial_number = tokens[1];
+
+				serial_number_vector::iterator iterator = std::find(serial_number_entries.begin(), serial_number_entries.end(), serial_number);
+				if(iterator == serial_number_entries.end())
+					throw ail::exception("Unable to find a disk entry for serial number " + serial_number);
+
+				std::string const targets[] =
+				{
+					"$DISK_IDENTIFIER$",
+					"$DRIVE_LETTER$"
+				};
+
+				std::string replacements[] =
+				{
+					iterator->disk_identifier,
+					drive_letter
+				};
+
+				std::string command = command_line;
+				for(std::size_t i = 0; i < ail::countof(targets); i++)
+					command = ail::replace_string(command, targets[i], replacements[i]);
+
+				std::cout << "Executing " << command << std::endl;
 			}
 		}
 		else
 		{
 			std::cout << "Invalid operation specified." << std::endl;
-			print_help();
+			print_help(argv);
 			return 1;
 		}
 	}
