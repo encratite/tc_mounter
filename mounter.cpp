@@ -1,4 +1,5 @@
 #define _WIN32_DCOM
+
 #include <iostream>
 #include <comdef.h>
 #include <Wbemidl.h>
@@ -51,107 +52,101 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	IWbemServices * pSvc = 0;
+	IWbemServices * services = 0;
 	
-	result = locator->ConnectServer(
-		 _bstr_t(L"ROOT\\CIMV2"), //Object path of WMI namespace
-		 0,					//User name. 0 = current user
-		 0,					//User password. 0 = current
-		 0,					 //Locale. 0 indicates current
-		 0,					//Security flags.
-		 0,					 //Authority (e.g. Kerberos)
-		 0,					 //Context object 
-		 &pSvc					//pointer to IWbemServices proxy
-		 );
+	result = locator->ConnectServer
+	(
+		//Object path of WMI namespace
+		 _bstr_t(L"ROOT\\CIMV2"),
+		 //User name. 0 = current user
+		 0,
+		 //User password. 0 = current
+		 0,
+		 //Locale. 0 indicates current
+		 0,
+		 //Security flags.
+		 0,
+		 //Authority (e.g. Kerberos)
+		 0,
+		 //Context object 
+		 0,
+		 //pointer to IWbemServices proxy
+		 &services
+	);
 	
 	if(FAILED(result))
 	{
-		std::cout << "Could not connect. Error code = 0x" 
-			 << std::hex << result << std::endl;
+		std::cout << "Could not connect. Error code = 0x" << std::hex << result << std::endl;
 		locator->Release();	 
 		CoUninitialize();
-		return 1;				//Program has failed.
+		return 1;
 	}
 
-	std::cout << "Connected to ROOT\\CIMV2 WMI namespace" << std::endl;
-
-
-	//Step 5: --------------------------------------------------
-	//Set security levels on the proxy -------------------------
-
-	result = CoSetProxyBlanket(
-	 pSvc,						//Indicates the proxy to set
-	 RPC_C_AUTHN_WINNT,		 //RPC_C_AUTHN_xxx
-	 RPC_C_AUTHZ_NONE,			//RPC_C_AUTHZ_xxx
-	 0,						//Server principal name 
-	 RPC_C_AUTHN_LEVEL_CALL,	 //RPC_C_AUTHN_LEVEL_xxx 
-	 RPC_C_IMP_LEVEL_IMPERSONATE, //RPC_C_IMP_LEVEL_xxx
-	 0,						//client identity
-	 EOAC_NONE					//proxy capabilities 
+	result = CoSetProxyBlanket
+	(
+		//Indicates the proxy to set
+		services,
+		RPC_C_AUTHN_WINNT,
+		RPC_C_AUTHZ_NONE,
+		0,
+		RPC_C_AUTHN_LEVEL_CALL,
+		RPC_C_IMP_LEVEL_IMPERSONATE,
+		//client identity
+		0,
+		//proxy capabilities 
+		EOAC_NONE
 	);
 
 	if(FAILED(result))
 	{
-		std::cout << "Could not set proxy blanket. Error code = 0x" 
-			<< std::hex << result << std::endl;
-		pSvc->Release();
+		std::cout << "Could not set proxy blanket. Error code = 0x" << std::hex << result << std::endl;
+		services->Release();
 		locator->Release();	 
 		CoUninitialize();
-		return 1;			 //Program has failed.
+		return 1;
 	}
 
-	//Step 6: --------------------------------------------------
-	//Use the IWbemServices pointer to make requests of WMI ----
-
-	//For example, get the name of the operating system
-	IEnumWbemClassObject* pEnumerator = 0;
-	result = pSvc->ExecQuery(
+	IEnumWbemClassObject * enumerator = 0;
+	result = services->ExecQuery
+	(
 		bstr_t("WQL"), 
-		bstr_t("SELECT * FROM Win32_OperatingSystem"),
+		bstr_t("select * from Win32_OperatingSystem"),
 		WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, 
 		0,
-		&pEnumerator);
+		&enumerator
+	);
 	
 	if(FAILED(result))
 	{
-		std::cout << "Query for operating system name failed."
-			<< " Error code = 0x" 
-			<< std::hex << result << std::endl;
-		pSvc->Release();
+		std::cout << "Query for operating system name failed. Error code = 0x" << std::hex << result << std::endl;
+		services->Release();
 		locator->Release();
 		CoUninitialize();
-		return 1;			 //Program has failed.
+		return 1;
 	}
 
-	//Step 7: -------------------------------------------------
-	//Get the data from the query in step 6 -------------------
+	IWbemClassObject * class_object;
+	ULONG return_value = 0;
  
-	IWbemClassObject *pclsObj;
-	ULONG uReturn = 0;
- 
-	while (pEnumerator)
+	while(enumerator)
 	{
-		HRESULT hr = pEnumerator->Next(WBEM_INFINITE, 1, 
-			&pclsObj, &uReturn);
+		HRESULT next_result = enumerator->Next(WBEM_INFINITE, 1, &class_object, &return_value);
 
-		if(0 == uReturn)
-		{
+		if(return_value == 0)
 			break;
-		}
 
-		VARIANT vtProp;
+		VARIANT variant_property;
 
-		//Get the value of the Name property
-		hr = pclsObj->Get(L"Name", 0, &vtProp, 0, 0);
-		std::wcout << " OS Name : " << vtProp.bstrVal << std::endl;
-		VariantClear(&vtProp);
+		next_result = class_object->Get(L"Name", 0, &variant_property, 0, 0);
+		std::wcout << "OS Name: " << variant_property.bstrVal << std::endl;
+		VariantClear(&variant_property);
 
-		pclsObj->Release();
+		class_object->Release();
 	}
 
-	pSvc->Release();
+	services->Release();
 	locator->Release();
-	pEnumerator->Release();
+	enumerator->Release();
 	CoUninitialize();
 
 	return 0;	
