@@ -4,11 +4,6 @@
 #include <comdef.h>
 #include <Wbemidl.h>
 
-struct security_handler
-{
-	security_handler();
-};
-
 int main(int argc, char ** argv)
 {
 	HRESULT result = CoInitializeEx(0, COINIT_MULTITHREADED); 
@@ -122,7 +117,8 @@ int main(int argc, char ** argv)
 	result = services->ExecQuery
 	(
 		bstr_t("WQL"), 
-		bstr_t("select * from Win32_OperatingSystem"),
+		//bstr_t("select * from Win32_OperatingSystem"),
+		bstr_t("select * from Win32_DiskDrive"),
 		WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, 
 		0,
 		&enumerator
@@ -150,7 +146,11 @@ int main(int argc, char ** argv)
 		VARIANT variant_property;
 
 		next_result = class_object->Get(L"Name", 0, &variant_property, 0, 0);
-		std::wcout << "OS Name: " << variant_property.bstrVal << std::endl;
+		std::wcout << "Name: " << variant_property.bstrVal << std::endl;
+		
+		next_result = class_object->Get(L"SerialNumber", 0, &variant_property, 0, 0);
+		std::wcout << "Serial number: " << variant_property.bstrVal << std::endl;
+
 		VariantClear(&variant_property);
 
 		class_object->Release();
