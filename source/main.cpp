@@ -201,6 +201,8 @@ int main(int argc, char ** argv)
 			for(string_vector::iterator i = lines.begin(); i != lines.end(); i++)
 			{
 				string_vector tokens = ail::tokenise(*i, " ");
+				if(tokens.size() != 2)
+					continue;
 				std::string const
 					& drive_letter = tokens[0],
 					& serial_number = tokens[1];
@@ -222,8 +224,8 @@ int main(int argc, char ** argv)
 				};
 
 				std::string command = command_line;
-				for(std::size_t i = 0; i < ail::countof(targets); i++)
-					command = ail::replace_string(command, targets[i], replacements[i]);
+				for(std::size_t offset = 0; offset < ail::countof(targets); offset++)
+					command = ail::replace_string(command, targets[offset], replacements[offset]);
 
 				std::cout << "Executing " << command << std::endl;
 			}
