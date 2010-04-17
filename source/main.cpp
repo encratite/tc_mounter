@@ -7,6 +7,7 @@
 #include <ail/file.hpp>
 #include <ail/array.hpp>
 #include <ail/types.hpp>
+#include <ail/string.hpp>
 #include "com.hpp"
 
 struct serial_number_entry
@@ -124,10 +125,17 @@ void perform_query(string_vector & names, string_vector & serial_numbers)
 
 		class_object->Release();
 
-		serial_number = convert_serial_number(serial_number);
+		try
+		{
+			serial_number = convert_serial_number(serial_number);
 
-		names.push_back(name);
-		serial_numbers.push_back(serial_number);
+			names.push_back(name);
+			serial_numbers.push_back(serial_number);
+		}
+		catch(ail::exception & exception)
+		{
+			std::cout << "Exception for device " << name << ": " << exception.get_message() << std::endl;
+		}
 	}
 
 	enumerator->Release();
@@ -201,35 +209,49 @@ int main(int argc, char ** argv)
 
 			for(string_vector::iterator i = lines.begin(); i != lines.end(); i++)
 			{
-				string_vector tokens = ail::tokenise(*i, " ");
+				string_vector tokens = ail::tokenise(*i, ":");
 				if(tokens.size() != 2)
 					continue;
-				std::string const
-					& drive_letter = tokens[0],
-					& serial_number = tokens[1];
 
-				serial_number_vector::iterator iterator = std::find(serial_number_entries.begin(), serial_number_entries.end(), serial_number);
-				if(iterator == serial_number_entries.end())
-					throw ail::exception("Unable to find a disk entry for serial number " + serial_number);
+				std::string serial_number = ail::trim(tokens[0]);
+				string_vector partition_tokens = ail::tokenise(ail::trim(tokens[1]), ";");
 
-				std::string const targets[] =
+				for(string_vector::iterator i = partition_tokens.begin(), end = partition_tokens.end(); i != end; i++)
 				{
-					"$DISK_IDENTIFIER$",
-					"$DRIVE_LETTER$"
-				};
+					string_vector argument_tokens = ail::tokenise(*i, ",");
 
-				std::string replacements[] =
-				{
-					iterator->disk_identifier,
-					drive_letter
-				};
+					std::string
+						partition_number = ail::trim(argument_tokens[0]),
+						drive_letter = ail::trim(argument_tokens[1]);
 
-				std::string command = command_line;
-				for(std::size_t offset = 0; offset < ail::countof(targets); offset++)
-					command = ail::replace_string(command, targets[offset], replacements[offset]);
+					serial_number_vector::iterator iterator = std::find(serial_number_entries.begin(), serial_number_entries.end(), serial_number);
+					if(iterator == serial_number_entries.end())
+					{
+						std::cout << "Unable to find a disk entry for serial number " << serial_number << std::endl;
+						continue;
+					}
 
-				std::cout << "Executing " << command << std::endl;
-				std::system(command.c_str());
+					std::string const targets[] =
+					{
+						"$DISK_IDENTIFIER$",
+						"$DRIVE_LETTER$",
+						"$PARTITION$"
+					};
+
+					std::string replacements[] =
+					{
+						iterator->disk_identifier,
+						drive_letter,
+						partition_number
+					};
+
+					std::string command = command_line;
+					for(std::size_t offset = 0; offset < ail::countof(targets); offset++)
+						command = ail::replace_string(command, targets[offset], replacements[offset]);
+
+					std::cout << "Executing " << command << std::endl;
+					std::system(command.c_str());
+				}
 			}
 		}
 		else
