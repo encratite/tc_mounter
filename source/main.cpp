@@ -143,6 +143,7 @@ void perform_query(string_vector & names, string_vector & serial_numbers)
 
 void print_help(char ** argv)
 {
+	std::cout << "TrueCrypt auto mounting tool" << std::endl;
 	std::cout << "Usage: " << std::endl;
 	std::cout << argv[0] << " list: List devices and their serial numbers" << std::endl;
 	std::cout << argv[0] << " mount <configuration file>: Mount devices as specified in the configuration file and the disk file" << std::endl;
