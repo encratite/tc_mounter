@@ -233,9 +233,9 @@ int main(int argc, char ** argv)
 
 					std::string const targets[] =
 					{
-						"$DISK_IDENTIFIER$",
-						"$DRIVE_LETTER$",
-						"$PARTITION$"
+						"DISK_IDENTIFIER",
+						"DRIVE_LETTER",
+						"PARTITION"
 					};
 
 					std::string replacements[] =
@@ -247,7 +247,7 @@ int main(int argc, char ** argv)
 
 					std::string command = command_line;
 					for(std::size_t offset = 0; offset < ail::countof(targets); offset++)
-						command = ail::replace_string(command, targets[offset], replacements[offset]);
+						command = ail::replace_string(command, "$" + targets[offset] + "$", replacements[offset]);
 
 					std::cout << "Executing " << command << std::endl;
 					std::system(command.c_str());
