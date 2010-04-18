@@ -48,7 +48,7 @@ std::string wchar_to_string(wchar_t * input)
 	char * buffer = new char[size];
 	WideCharToMultiByte(CP_ACP, 0, input, -1, buffer, size, default_char, 0);
 	std::string output(buffer, static_cast<std::size_t>(size - 1));
-	delete buffer;
+	delete[] buffer;
 	return output;
 }
 
