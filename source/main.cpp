@@ -3,11 +3,15 @@
 #include <algorithm>
 #include <string>
 #include <cstdlib>
+
 #include <ail/configuration.hpp>
 #include <ail/file.hpp>
 #include <ail/array.hpp>
 #include <ail/types.hpp>
 #include <ail/string.hpp>
+
+#include <windows.h>
+
 #include "com.hpp"
 
 struct serial_number_entry
@@ -55,16 +59,22 @@ std::string wchar_to_string(wchar_t * input)
 std::string convert_serial_number(std::string const & input)
 {
 	std::string output;
-	std::size_t const group_size = 2;
-	for(std::size_t i = 0; i < input.size(); i += group_size)
+	if(input.length() == 40)
 	{
-		std::string group = input.substr(i, group_size);
-		std::istringstream stream(group);
-		int letter;
-		if(!(stream >> std::hex >> letter))
-			throw ail::exception("Failed to convert serial number data " + input);
-		output.push_back(static_cast<char>(letter));
+		std::size_t const group_size = 2;
+		for(std::size_t i = 0; i < input.size(); i += group_size)
+		{
+			std::string group = input.substr(i, group_size);
+			std::istringstream stream(group);
+			int letter;
+			if(!(stream >> std::hex >> letter))
+				throw ail::exception("Failed to convert serial number data " + input);
+			output.push_back(static_cast<char>(letter));
+		}
+		
 	}
+	else
+		output = input;
 	output = ail::right_trim(output);
 	return output;
 }
