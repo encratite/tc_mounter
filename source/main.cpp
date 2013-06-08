@@ -75,7 +75,7 @@ std::string convert_serial_number(std::string const & input)
 	}
 	else
 		output = input;
-	output = ail::right_trim(output);
+	output = ail::trim(output);
 	return output;
 }
 
@@ -274,7 +274,7 @@ int main(int argc, char ** argv)
 	}
 	catch(ail::exception & exception)
 	{
-		std::cout << "An exception occured: " << exception.get_message() << std::endl;
+		std::cout << "An exception occurred: " << exception.get_message() << std::endl;
 		return 1;
 	}
 
